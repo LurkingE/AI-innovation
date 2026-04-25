@@ -7,14 +7,14 @@ import os
 from pathlib import Path
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-DOCS_FOLDER   = "./documents"       # Folder containing your .txt files
+DOCS_FOLDER   = "C:/Users/opoku/OneDrive/Desktop/tenant_rights"       # Folder containing your .txt files
 VECTOR_DB_DIR = "./vector_db"       # Where the vector store will be saved
 CHUNK_SIZE    = 500                 # Characters per chunk
 CHUNK_OVERLAP = 50                  # Overlap between chunks to preserve context
@@ -63,7 +63,7 @@ def chunk_documents(docs):
 def build_vector_store(chunks, persist_dir: str):
     print(f"\n🔢 Embedding chunks with '{EMBEDDING_MODEL}'...")
 
-    embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
     vector_store = Chroma.from_documents(
         documents=chunks,
