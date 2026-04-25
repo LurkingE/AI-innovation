@@ -1,6 +1,7 @@
 """
 RAG Ingestion System — LangChain + ChromaDB
 Reads all .txt files from a folder, chunks them, embeds them, and saves to a vector store.
+Supports both English and Spanish documents.
 """
 
 import os
@@ -14,11 +15,14 @@ from langchain_community.vectorstores import Chroma
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-DOCS_FOLDER   = "C:/Users/opoku/OneDrive/Desktop/tenant_rights"       # Folder containing your .txt files
-VECTOR_DB_DIR = "./vector_db"       # Where the vector store will be saved
-CHUNK_SIZE    = 500                 # Characters per chunk
-CHUNK_OVERLAP = 50                  # Overlap between chunks to preserve context
-EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI embedding model
+DOCS_FOLDER   = "C:/Users/opoku/OneDrive/Desktop/tenant_rights"  # Folder with .txt files (EN + ES)
+VECTOR_DB_DIR = "./vector_db"   # Where the vector store will be saved
+CHUNK_SIZE    = 500             # Characters per chunk
+CHUNK_OVERLAP = 50              # Overlap between chunks to preserve context
+
+# all-MiniLM-L6-v2 is multilingual-capable for retrieval;
+# swap for "paraphrase-multilingual-MiniLM-L12-v2" for stronger Spanish retrieval.
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
 # ── Step 1: Load all .txt files from the folder ───────────────────────────────
@@ -29,16 +33,27 @@ def load_documents(folder: str):
     if not Path(folder).exists():
         raise FileNotFoundError(f"Folder not found: {folder}")
 
-    loader = DirectoryLoader(
-        folder,
-        glob="**/*.txt",            # Recursively find all .txt files
-        loader_cls=TextLoader,
-        loader_kwargs={"encoding": "utf-8"},
-        show_progress=True,
-    )
+    # Try UTF-8 first; fall back to latin-1 to handle Spanish special characters
+    # (á, é, í, ó, ú, ñ, ü, ¡, ¿) that may be saved in legacy encodings.
+    docs = []
+    for encoding in ("utf-8", "latin-1"):
+        try:
+            loader = DirectoryLoader(
+                folder,
+                glob="**/*.txt",
+                loader_cls=TextLoader,
+                loader_kwargs={"encoding": encoding},
+                show_progress=True,
+            )
+            docs = loader.load()
+            print(f"✅ Loaded {len(docs)} document(s) using {encoding} encoding")
+            break
+        except UnicodeDecodeError:
+            print(f"⚠️  {encoding} failed, retrying with latin-1...")
 
-    docs = loader.load()
-    print(f"✅ Loaded {len(docs)} document(s)")
+    if not docs:
+        raise RuntimeError("Could not load documents — check file encodings.")
+
     return docs
 
 
@@ -50,7 +65,8 @@ def chunk_documents(docs):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],  # Tries to split on paragraphs first
+        # Spanish uses period+space like English; paragraph breaks work for both
+        separators=["\n\n", "\n", ". ", " ", ""],
     )
 
     chunks = splitter.split_documents(docs)
@@ -62,8 +78,10 @@ def chunk_documents(docs):
 
 def build_vector_store(chunks, persist_dir: str):
     print(f"\n🔢 Embedding chunks with '{EMBEDDING_MODEL}'...")
+    print("   ℹ️  For stronger Spanish retrieval, consider swapping to:")
+    print("      paraphrase-multilingual-MiniLM-L12-v2")
 
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
     vector_store = Chroma.from_documents(
         documents=chunks,
@@ -75,38 +93,36 @@ def build_vector_store(chunks, persist_dir: str):
     return vector_store
 
 
-# ── Step 4: Test a sample query ───────────────────────────────────────────────
+# ── Step 4: Test a sample query in both languages ─────────────────────────────
 
-def test_retrieval(vector_store, query: str = "What is this document about?"):
-    print(f"\n🔍 Test query: '{query}'")
+def test_retrieval(vector_store):
+    test_queries = [
+        ("en", "What are a tenant's rights?"),
+        ("es", "¿Cuáles son los derechos del inquilino?"),
+    ]
 
     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    results = retriever.invoke(query)
 
-    print(f"   Top {len(results)} result(s):\n")
-    for i, doc in enumerate(results, 1):
-        source = doc.metadata.get("source", "unknown")
-        snippet = doc.page_content[:200].replace("\n", " ")
-        print(f"   [{i}] Source: {source}")
-        print(f"       Snippet: {snippet}...\n")
+    for lang, query in test_queries:
+        print(f"\n🔍 [{lang.upper()}] Test query: '{query}'")
+        results = retriever.invoke(query)
+        print(f"   Top {len(results)} result(s):\n")
+        for i, doc in enumerate(results, 1):
+            source  = doc.metadata.get("source", "unknown")
+            snippet = doc.page_content[:200].replace("\n", " ")
+            print(f"   [{i}] Source: {source}")
+            print(f"       Snippet: {snippet}...\n")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    # Check for OpenAI API key
-    if not os.getenv("OPENAI_API_KEY"):
-        raise EnvironmentError(
-            "OPENAI_API_KEY not set. Export it with:\n"
-            "  export OPENAI_API_KEY=sk-..."
-        )
-
     docs   = load_documents(DOCS_FOLDER)
     chunks = chunk_documents(docs)
     vs     = build_vector_store(chunks, VECTOR_DB_DIR)
     test_retrieval(vs)
 
-    print("\n🎉 Ingestion complete! Your vector store is ready for RAG queries.")
+    print("\n🎉 Ingestion complete! Your vector store is ready for bilingual RAG queries.")
 
 
 if __name__ == "__main__":

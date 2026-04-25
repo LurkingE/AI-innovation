@@ -114,6 +114,45 @@
       margin-top: 1px;
     }
 
+    /* ── Header controls ── */
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Language toggle ── */
+    .lang-toggle {
+      display: flex;
+      background: var(--toggle-bg);
+      border-radius: 20px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: none;
+      border-radius: 16px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-family: 'Syne', sans-serif;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+    }
+
+    .lang-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .lang-btn:not(.active):hover {
+      color: var(--text);
+    }
+
     /* ── Theme toggle ── */
     .theme-toggle {
       background: var(--toggle-bg);
@@ -252,6 +291,20 @@
       border: 1px solid var(--border);
     }
 
+    /* Lang badge on AI messages */
+    .lang-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-family: 'Syne', sans-serif;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
     /* Sources */
     .sources {
       margin-top: 10px;
@@ -381,22 +434,30 @@
       <div class="logo-icon">🏠</div>
       <div>
         <div class="logo-text">TANY</div>
-        <div class="logo-sub">Tenant Rights Assistant</div>
+        <div class="logo-sub" id="logo-sub">Tenant Rights Assistant</div>
       </div>
     </div>
-    <button class="theme-toggle" onclick="toggleTheme()">
-      <span id="theme-icon">☀️</span>
-      <span id="theme-label">Light</span>
-    </button>
+    <div class="header-controls">
+      <!-- Language toggle -->
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="btn-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn"        id="btn-es" onclick="setLanguage('es')">ES</button>
+      </div>
+      <!-- Theme toggle -->
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span id="theme-icon">☀️</span>
+        <span id="theme-label">Light</span>
+      </button>
+    </div>
   </header>
 
   <!-- Messages -->
   <div class="messages" id="messages">
     <div class="welcome" id="welcome">
       <div class="welcome-icon">🏠</div>
-      <h2>Hi, I'm TANY</h2>
-      <p>Your personal tenant rights assistant. Ask me anything about your rights as a tenant and I'll answer based on your documents.</p>
-      <div class="suggestions">
+      <h2 id="welcome-title">Hi, I'm TANY</h2>
+      <p id="welcome-desc">Your personal tenant rights assistant. Ask me anything about your rights as a tenant and I'll answer based on your documents.</p>
+      <div class="suggestions" id="suggestions">
         <div class="suggestion" onclick="suggest(this)">What are my rights if evicted?</div>
         <div class="suggestion" onclick="suggest(this)">Can my landlord raise rent?</div>
         <div class="suggestion" onclick="suggest(this)">What is a security deposit?</div>
@@ -421,7 +482,7 @@
         </svg>
       </button>
     </div>
-    <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+    <div class="input-hint" id="input-hint">Press Enter to send · Shift+Enter for new line</div>
   </div>
 
 </div>
@@ -431,14 +492,90 @@
   const inputEl    = document.getElementById("input");
   const sendBtn    = document.getElementById("send-btn");
 
+  // ── Language state ──────────────────────────────────────────────────────────
+  // "auto" means the backend will detect from the question text.
+  // When user explicitly picks EN or ES in the toggle, we lock it.
+  let currentLang = "auto";
+
+  const UI_STRINGS = {
+    en: {
+      logoSub:       "Tenant Rights Assistant",
+      welcomeTitle:  "Hi, I'm TANY",
+      welcomeDesc:   "Your personal tenant rights assistant. Ask me anything about your rights as a tenant and I'll answer based on your documents.",
+      suggestions: [
+        "What are my rights if evicted?",
+        "Can my landlord raise rent?",
+        "What is a security deposit?",
+        "How do I report unsafe conditions?",
+      ],
+      placeholder:   "Ask TANY about your tenant rights...",
+      inputHint:     "Press Enter to send · Shift+Enter for new line",
+      sourcesLabel:  "📚 Sources",
+      themeLight:    "Light",
+      themeDark:     "Dark",
+      errorMsg:      "⚠️ Something went wrong. Make sure the server is running.",
+    },
+    es: {
+      logoSub:       "Asistente de Derechos de Inquilinos",
+      welcomeTitle:  "Hola, soy TANY",
+      welcomeDesc:   "Tu asistente personal de derechos de inquilinos. Pregúntame cualquier cosa sobre tus derechos como inquilino y responderé basándome en tus documentos.",
+      suggestions: [
+        "¿Cuáles son mis derechos si me desalojan?",
+        "¿Puede mi arrendador subir el alquiler?",
+        "¿Qué es un depósito de seguridad?",
+        "¿Cómo reporto condiciones inseguras?",
+      ],
+      placeholder:   "Pregúntale a TANY sobre tus derechos como inquilino...",
+      inputHint:     "Presiona Enter para enviar · Shift+Enter para nueva línea",
+      sourcesLabel:  "📚 Fuentes",
+      themeLight:    "Claro",
+      themeDark:     "Oscuro",
+      errorMsg:      "⚠️ Algo salió mal. Asegúrate de que el servidor esté en ejecución.",
+    },
+  };
+
+  function setLanguage(lang) {
+    currentLang = lang;  // "en" | "es"  — locks the language choice
+
+    // Update toggle button styles
+    document.getElementById("btn-en").classList.toggle("active", lang === "en");
+    document.getElementById("btn-es").classList.toggle("active", lang === "es");
+
+    const s = UI_STRINGS[lang];
+
+    // Update static UI text
+    document.getElementById("logo-sub").textContent     = s.logoSub;
+    document.getElementById("welcome-title").textContent = s.welcomeTitle;
+    document.getElementById("welcome-desc").textContent  = s.welcomeDesc;
+    document.getElementById("input-hint").textContent    = s.inputHint;
+    inputEl.placeholder = s.placeholder;
+
+    // Rebuild suggestion chips
+    const sugEl = document.getElementById("suggestions");
+    if (sugEl) {
+      sugEl.innerHTML = s.suggestions
+        .map(t => `<div class="suggestion" onclick="suggest(this)">${t}</div>`)
+        .join("");
+    }
+
+    // Update theme button label if visible
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    document.getElementById("theme-label").textContent = isDark ? s.themeDark : s.themeLight;
+  }
+
+  // ── Theme ───────────────────────────────────────────────────────────────────
   function toggleTheme() {
-    const html = document.documentElement;
+    const html   = document.documentElement;
     const isDark = html.getAttribute("data-theme") === "dark";
     html.setAttribute("data-theme", isDark ? "light" : "dark");
     document.getElementById("theme-icon").textContent  = isDark ? "🌙" : "☀️";
-    document.getElementById("theme-label").textContent = isDark ? "Dark" : "Light";
+
+    const lang = currentLang === "auto" ? "en" : currentLang;
+    const s = UI_STRINGS[lang];
+    document.getElementById("theme-label").textContent = isDark ? s.themeDark : s.themeLight;
   }
 
+  // ── Textarea helpers ────────────────────────────────────────────────────────
   function autoResize(el) {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
@@ -460,7 +597,8 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  function addMessage(role, content, sources = []) {
+  // ── Message rendering ───────────────────────────────────────────────────────
+  function addMessage(role, content, sources = [], lang = null) {
     const welcome = document.getElementById("welcome");
     if (welcome) welcome.remove();
 
@@ -468,15 +606,26 @@
     msg.className = `message ${role}`;
 
     const avatar = role === "user" ? "👤" : "🏠";
+
+    // Show a small language badge on AI replies when language was detected
+    let badgeHTML = "";
+    if (role === "ai" && lang) {
+      const label = lang === "es" ? "ES 🇲🇽" : "EN 🇺🇸";
+      badgeHTML = `<div class="lang-badge">${label}</div>`;
+    }
+
+    const uiLang = currentLang === "auto" ? (lang || "en") : currentLang;
+    const sourcesLabelText = UI_STRINGS[uiLang]?.sourcesLabel ?? "📚 Sources";
+
     const sourcesHTML = sources.length ? `
       <div class="sources">
-        <div class="sources-label">📚 Sources</div>
+        <div class="sources-label">${sourcesLabelText}</div>
         ${sources.map(s => `<span class="source-tag">${s.split(/[\\/]/).pop()}</span>`).join("")}
       </div>` : "";
 
     msg.innerHTML = `
       <div class="avatar">${avatar}</div>
-      <div class="bubble">${content}${sourcesHTML}</div>
+      <div class="bubble">${badgeHTML}${content}${sourcesHTML}</div>
     `;
 
     messagesEl.appendChild(msg);
@@ -505,6 +654,7 @@
     if (t) t.remove();
   }
 
+  // ── Send message ────────────────────────────────────────────────────────────
   async function sendMessage() {
     const question = inputEl.value.trim();
     if (!question) return;
@@ -516,19 +666,24 @@
     addMessage("user", question);
     addTyping();
 
+    // Pass the current language setting to the backend.
+    // "auto" lets the backend detect from the question text.
+    const langToSend = currentLang; // "en" | "es" | "auto"
+
     try {
       const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, language: langToSend }),
       });
 
       const data = await res.json();
       removeTyping();
-      addMessage("ai", data.answer, data.sources || []);
+      addMessage("ai", data.answer, data.sources || [], data.language || null);
     } catch (err) {
       removeTyping();
-      addMessage("ai", "⚠️ Something went wrong. Make sure the server is running.");
+      const uiLang = currentLang === "auto" ? "en" : currentLang;
+      addMessage("ai", UI_STRINGS[uiLang].errorMsg);
     }
 
     sendBtn.disabled = false;
