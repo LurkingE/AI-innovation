@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TANY — Tenant Rights Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --transition: 0.3s ease;
+    }
+
+    [data-theme="dark"] {
+      --bg:           #0e0f13;
+      --bg-panel:     #16181f;
+      --bg-input:     #1e2028;
+      --border:       #2a2d38;
+      --accent:       #4f8ef7;
+      --accent-soft:  rgba(79,142,247,0.12);
+      --text:         #e8eaf0;
+      --text-muted:   #6b7080;
+      --user-bg:      #1a2a4a;
+      --user-text:    #c8dcff;
+      --ai-bg:        #1a1d26;
+      --ai-text:      #e8eaf0;
+      --source-bg:    #1e2028;
+      --source-text:  #6b7080;
+      --shadow:       0 8px 32px rgba(0,0,0,0.4);
+      --toggle-bg:    #2a2d38;
+    }
+
+    [data-theme="light"] {
+      --bg:           #f4f5f9;
+      --bg-panel:     #ffffff;
+      --bg-input:     #f0f1f6;
+      --border:       #e0e2eb;
+      --accent:       #2563eb;
+      --accent-soft:  rgba(37,99,235,0.08);
+      --text:         #1a1d2e;
+      --text-muted:   #8b90a8;
+      --user-bg:      #dbeafe;
+      --user-text:    #1e3a6e;
+      --ai-bg:        #ffffff;
+      --ai-text:      #1a1d2e;
+      --source-bg:    #f4f5f9;
+      --source-text:  #8b90a8;
+      --shadow:       0 8px 32px rgba(0,0,0,0.08);
+      --toggle-bg:    #e0e2eb;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 0 16px rgba(79,142,247,0.3);
+    }
+
+    .logo-text {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 300;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 1px;
+    }
+
+    /* ── Theme toggle ── */
+    .theme-toggle {
+      background: var(--toggle-bg);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .theme-toggle:hover { color: var(--text); }
+
+    /* ── Messages ── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Welcome */
+    .welcome {
+      text-align: center;
+      padding: 48px 24px;
+      animation: fadeUp 0.5s ease;
+    }
+
+    .welcome-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .welcome h2 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .welcome p {
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 24px;
+    }
+
+    .suggestion {
+      background: var(--accent-soft);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .suggestion:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Message bubbles */
+    .message {
+      display: flex;
+      gap: 12px;
+      animation: fadeUp 0.3s ease;
+    }
+
+    .message.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .message.user .avatar {
+      background: var(--accent);
+    }
+
+    .message.ai .avatar {
+      background: var(--accent-soft);
+      border: 1px solid var(--border);
+    }
+
+    .bubble {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 15px;
+      line-height: 1.6;
+      box-shadow: var(--shadow);
+    }
+
+    .message.user .bubble {
+      background: var(--user-bg);
+      color: var(--user-text);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.ai .bubble {
+      background: var(--ai-bg);
+      color: var(--ai-text);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* Sources */
+    .sources {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sources-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .source-tag {
+      display: inline-block;
+      background: var(--source-bg);
+      color: var(--source-text);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin: 2px 4px 2px 0;
+      font-family: monospace;
+    }
+
+    /* Typing indicator */
+    .typing .bubble {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 14px 18px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ── Input area ── */
+    .input-area {
+      padding: 16px 0 24px;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px 10px 10px 16px;
+      transition: border-color 0.2s;
+    }
+
+    .input-row:focus-within {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: var(--text);
+      resize: none;
+      min-height: 24px;
+      max-height: 120px;
+      line-height: 1.5;
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .send-btn:hover { opacity: 0.85; }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .send-btn svg { width: 16px; height: 16px; fill: white; }
+
+    .input-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🏠</div>
+      <div>
+        <div class="logo-text">TANY</div>
+        <div class="logo-sub">Tenant Rights Assistant</div>
+      </div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <span id="theme-icon">☀️</span>
+      <span id="theme-label">Light</span>
+    </button>
+  </header>
+
+  <!-- Messages -->
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">🏠</div>
+      <h2>Hi, I'm TANY</h2>
+      <p>Your personal tenant rights assistant. Ask me anything about your rights as a tenant and I'll answer based on your documents.</p>
+      <div class="suggestions">
+        <div class="suggestion" onclick="suggest(this)">What are my rights if evicted?</div>
+        <div class="suggestion" onclick="suggest(this)">Can my landlord raise rent?</div>
+        <div class="suggestion" onclick="suggest(this)">What is a security deposit?</div>
+        <div class="suggestion" onclick="suggest(this)">How do I report unsafe conditions?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="input-row">
+      <textarea
+        id="input"
+        placeholder="Ask TANY about your tenant rights..."
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+    <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+  </div>
+
+</div>
+
+<script>
+  const messagesEl = document.getElementById("messages");
+  const inputEl    = document.getElementById("input");
+  const sendBtn    = document.getElementById("send-btn");
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute("data-theme") === "dark";
+    html.setAttribute("data-theme", isDark ? "light" : "dark");
+    document.getElementById("theme-icon").textContent  = isDark ? "🌙" : "☀️";
+    document.getElementById("theme-label").textContent = isDark ? "Dark" : "Light";
+  }
+
+  function autoResize(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function suggest(el) {
+    inputEl.value = el.textContent;
+    sendMessage();
+  }
+
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addMessage(role, content, sources = []) {
+    const welcome = document.getElementById("welcome");
+    if (welcome) welcome.remove();
+
+    const msg = document.createElement("div");
+    msg.className = `message ${role}`;
+
+    const avatar = role === "user" ? "👤" : "🏠";
+    const sourcesHTML = sources.length ? `
+      <div class="sources">
+        <div class="sources-label">📚 Sources</div>
+        ${sources.map(s => `<span class="source-tag">${s.split(/[\\/]/).pop()}</span>`).join("")}
+      </div>` : "";
+
+    msg.innerHTML = `
+      <div class="avatar">${avatar}</div>
+      <div class="bubble">${content}${sourcesHTML}</div>
+    `;
+
+    messagesEl.appendChild(msg);
+    scrollBottom();
+    return msg;
+  }
+
+  function addTyping() {
+    const msg = document.createElement("div");
+    msg.className = "message ai typing";
+    msg.id = "typing";
+    msg.innerHTML = `
+      <div class="avatar">🏠</div>
+      <div class="bubble">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    `;
+    messagesEl.appendChild(msg);
+    scrollBottom();
+  }
+
+  function removeTyping() {
+    const t = document.getElementById("typing");
+    if (t) t.remove();
+  }
+
+  async function sendMessage() {
+    const question = inputEl.value.trim();
+    if (!question) return;
+
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    sendBtn.disabled = true;
+
+    addMessage("user", question);
+    addTyping();
+
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+
+      const data = await res.json();
+      removeTyping();
+      addMessage("ai", data.answer, data.sources || []);
+    } catch (err) {
+      removeTyping();
+      addMessage("ai", "⚠️ Something went wrong. Make sure the server is running.");
+    }
+
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+</script>
+</body>
+</html>

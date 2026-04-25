@@ -4,10 +4,11 @@ Loads an existing vector store and answers questions using retrieved context.
 """
 
 import os
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.llms import Ollama
 from langchain_community.vectorstores import Chroma
+from langchain_core.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
 
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ Answer:"""
 # ── Load vector store ─────────────────────────────────────────────────────────
 
 def load_vector_store():
-    embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vs = Chroma(
         persist_directory=VECTOR_DB_DIR,
         embedding_function=embeddings,
@@ -50,7 +51,7 @@ def load_vector_store():
 # ── Build RAG chain ───────────────────────────────────────────────────────────
 
 def build_rag_chain(vector_store):
-    llm = ChatOpenAI(model=CHAT_MODEL, temperature=0)
+    llm = Ollama(model="llama3.2:latest")
 
     chain = RetrievalQA.from_chain_type(
         llm=llm,
@@ -92,12 +93,6 @@ def query_loop(chain):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    if not os.getenv("OPENAI_API_KEY"):
-        raise EnvironmentError(
-            "OPENAI_API_KEY not set. Export it with:\n"
-            "  export OPENAI_API_KEY=sk-..."
-        )
-
     vs    = load_vector_store()
     chain = build_rag_chain(vs)
     query_loop(chain)
